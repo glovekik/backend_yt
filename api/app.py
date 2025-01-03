@@ -1,70 +1,74 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+import uuid
+import logging
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import yt_dlp
-import logging
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 
 # Enable CORS for the frontend (replace with the actual frontend URL)
-CORS(app, resources={r"/*": {"origins": "https://frontend-fullapplication.vercel.app"}})
+CORS(app, resources={r"/*": {"origins": ["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"]}})
 
 # Set the directory for downloads (use '/tmp' for production environments like Railway)
-DOWNLOAD_DIR = os.getenv('RAILWAY_FILES_PATH', '/tmp')
-
-# Ensure download directory exists
+DOWNLOAD_DIR = os.getenv('RAILWAY_FILES_PATH', '/tmp/downloads')
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # Function to download video or audio
 def download_media(link, media_type='video'):
     try:
         # Define yt-dlp options based on media type
+        ydl_opts = {
+            'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
+            'noplaylist': True,  # Only download a single video
+        }
         if media_type == 'video':
-            ydl_opts = {
-                'format': 'best',  # Best available quality for video
-                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),  # Save file with title
-                'noplaylist': True,  # Only download a single video
-            }
+            ydl_opts['format'] = 'best'  # Best available quality for video
         elif media_type == 'audio':
-            ydl_opts = {
-                'format': 'bestaudio/best',  # Best available audio quality
-                'outtmpl': os.path.join(DOWNLOAD_DIR, '%(title)s.%(ext)s'),  # Save file with title
-                'noplaylist': True,  # Only download a single video
-                'postprocessors': [{
-                    'key': 'FFmpegAudioConvertor',  # Convert audio to mp3
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-            }
+            ydl_opts['format'] = 'bestaudio/best'
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegAudioConvertor',  # Convert audio to mp3
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
 
         # Download media using yt-dlp
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
-            filename = ydl.prepare_filename(info_dict)  # Get the file name
-            logging.info(f"Downloaded: {filename}")
-            return os.path.basename(filename), None
+            filepath = ydl.prepare_filename(info_dict)
+            logging.info(f"Downloaded: {filepath}")
+            return filepath, None
     except Exception as e:
         logging.error(f"Error downloading media: {e}")
         return None, "Failed to process the request. Ensure the link is valid."
 
+# Health check route
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify({"message": "Server is running!"}), 200
+
 # Route to handle download requests
-@app.route('/download', methods=['POST'])
+@app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
+    if request.method == 'OPTIONS':
+        # Handle preflight requests for CORS
+        return '', 200
+
     try:
-        data = request.json
+        data = request.get_json()
         link = data.get('link')
         media_type = data.get('media_type', 'video')
 
         if not link:
             return jsonify({"error": "No link provided"}), 400
 
-        filename, error = download_media(link, media_type)
+        filepath, error = download_media(link, media_type)
 
-        if filename:
-            return jsonify({"filename": filename}), 200
+        if filepath:
+            return send_file(filepath, as_attachment=True)
         else:
             return jsonify({"error": error}), 500
     except Exception as e:
@@ -77,7 +81,7 @@ def serve_file(filename):
     try:
         filepath = os.path.join(DOWNLOAD_DIR, filename)
         if os.path.isfile(filepath):
-            return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
+            return send_file(filepath, as_attachment=True)
         else:
             return jsonify({"error": "File not found"}), 404
     except Exception as e:
@@ -96,7 +100,6 @@ def not_found_error(error):
     logging.error(f"Not Found: {error}")
     return jsonify({"error": "Resource not found"}), 404
 
-if __name__ == '__main__':
-    # Use the PORT environment variable if set (useful for cloud platforms like Railway)
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
