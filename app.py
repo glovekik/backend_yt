@@ -15,10 +15,14 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
+    # Path to the cookies file, replace with the correct path
+    cookies_file = '/path/to/cookies.txt'  # Update this to your actual cookies.txt path
+    
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
+        'cookiefile': cookies_file,  # Use cookies file for authentication
     }
 
     # If audio, download only audio
