@@ -19,7 +19,7 @@ def download_media(link, media_type):
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
-        'ffmpeg_location': '/usr/local/bin/ffmpeg',  # Specify ffmpeg location (adjust path if necessary)
+        'ffmpeg_location': '/usr/bin/ffmpeg',  # Adjust path to ffmpeg
     }
 
     # If audio, download only audio
