@@ -15,11 +15,15 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
+    # Specify the path to ffmpeg if it's installed in a specific directory
+    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
+
     ydl_opts = {
+        'ffmpeg_location': ffmpeg_location,  # Point to the ffmpeg binary
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
-        'ffmpeg_location': '/usr/bin/ffmpeg',  # Adjust path to ffmpeg
+        'verbose': True,  # Enable verbose for debugging
     }
 
     # If audio, download only audio
