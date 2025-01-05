@@ -13,7 +13,7 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Function to download audio from YouTube
+# Function to download audio or video from YouTube
 def download_media(link, media_type):
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
@@ -21,6 +21,7 @@ def download_media(link, media_type):
         'quiet': False,
     }
 
+    # Determine the format for audio or video
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
     else:
@@ -30,7 +31,7 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            return filename  # Return full file path
+            return filename  # Return full file path of the downloaded media
     except Exception as e:
         print(f"Download error: {e}")
         return str(e)
@@ -38,12 +39,12 @@ def download_media(link, media_type):
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
     if request.method == 'OPTIONS':
-        # Handle preflight request
+        # Handle preflight request for CORS
         return '', 200
 
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type', 'video')  # Default to video if no media_type provided
+    media_type = data.get('media_type', 'video')  # Default to video if no media_type is provided
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -56,10 +57,11 @@ def download():
         return jsonify({"error": downloaded_file}), 500
 
     try:
-        # Use send_file to directly serve the downloaded file
+        # Serve the downloaded file as an attachment
         return send_file(downloaded_file, as_attachment=True)
     except Exception as e:
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
+    # Run the Flask app on host 0.0.0.0 and port 5000
     app.run(host="0.0.0.0", port=5000)
