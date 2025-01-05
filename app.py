@@ -13,22 +13,24 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies file (change this path to where your cookies.txt is located)
-COOKIES_FILE_PATH = '/path/to/your/cookies.txt'  # Update this with the correct path
-
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
-        'cookies': COOKIES_FILE_PATH,  # Add the cookies parameter for authentication
     }
 
+    # If audio, download only audio
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
+    # If video, download both video and audio and merge them using ffmpeg
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
+        ydl_opts['postprocessors'] = [{
+            'key': 'FFmpegVideoConvertor',
+            'preferedformat': 'mp4',  # This will convert the final result into mp4
+        }]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -67,4 +69,3 @@ def download():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
