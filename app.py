@@ -13,15 +13,18 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Path to cookies file (change this path to where your cookies.txt is located)
+COOKIES_FILE_PATH = '/path/to/your/cookies.txt'  # Update this with the correct path
+
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
+        'cookies': COOKIES_FILE_PATH,  # Add the cookies parameter for authentication
     }
 
-    # Determine the format for audio or video
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
     else:
@@ -39,12 +42,12 @@ def download_media(link, media_type):
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
     if request.method == 'OPTIONS':
-        # Handle preflight request for CORS
+        # Handle preflight request
         return '', 200
 
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type', 'video')  # Default to video if no media_type is provided
+    media_type = data.get('media_type', 'video')  # Default to video if no media_type provided
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -57,11 +60,11 @@ def download():
         return jsonify({"error": downloaded_file}), 500
 
     try:
-        # Serve the downloaded file as an attachment
+        # Use send_file to directly serve the downloaded file
         return send_file(downloaded_file, as_attachment=True)
     except Exception as e:
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    # Run the Flask app on host 0.0.0.0 and port 5000
     app.run(host="0.0.0.0", port=5000)
+
