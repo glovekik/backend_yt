@@ -13,16 +13,13 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies.txt for authentication (update this if necessary)
-cookies_file = '/app/cookies.txt'  # Update the path to the cookies file
-
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
-        'cookiefile': cookies_file,  # Use cookies for authentication if required
+        'ffmpeg_location': '/usr/local/bin/ffmpeg',  # Specify ffmpeg location (adjust path if necessary)
     }
 
     # If audio, download only audio
