@@ -13,16 +13,16 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Path to cookies.txt for authentication (update this if necessary)
+cookies_file = '/app/cookies.txt'  # Update the path to the cookies file
+
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    # Path to the cookies file, replace with the correct path
-    cookies_file = '/path/to/cookies.txt'  # Update this to your actual cookies.txt path
-    
     ydl_opts = {
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': False,
-        'cookiefile': cookies_file,  # Use cookies file for authentication
+        'cookiefile': cookies_file,  # Use cookies for authentication if required
     }
 
     # If audio, download only audio
@@ -35,8 +35,6 @@ def download_media(link, media_type):
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',  # This will convert the final result into mp4
         }]
-        # Add the ffmpeg path if needed (use '/usr/bin/ffmpeg' for Railway)
-        ydl_opts['ffmpeg_location'] = '/usr/bin/ffmpeg'
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
