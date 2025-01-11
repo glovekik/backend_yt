@@ -3,59 +3,57 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import uuid
-from threading import Timer
 
 app = Flask(__name__)
 
-# Allow requests from specific frontend URLs
-CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500", "*"])
+# Allow requests from the frontend URL
+CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
 # Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to your cookies file
+# Path to the cookies file
 COOKIES_FILE = "/tmp/cookies.txt"
 
-# Ensure the cookies file exists
+# Check if cookies file exists and warn if it's missing
 if not os.path.exists(COOKIES_FILE):
-    raise FileNotFoundError(f"Cookies file not found: {COOKIES_FILE}")
-
-# Function to clean up temporary files
-def cleanup_file(file_path, delay=3600):
-    Timer(delay, lambda: os.remove(file_path) if os.path.exists(file_path) else None).start()
+    print(f"Warning: Cookies file not found: {COOKIES_FILE}. Proceeding without cookies.")
+    COOKIES_FILE = None  # Disable cookie usage
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
+    # Specify the path to ffmpeg if it's installed in a specific directory
     ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
     ydl_opts = {
-        'ffmpeg_location': ffmpeg_location,
+        'ffmpeg_location': ffmpeg_location,  # Point to the ffmpeg binary
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'quiet': True,
-        'cookiefile': COOKIES_FILE,  # Path to cookies file
     }
 
+    # If audio, download only audio
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
+    # If video, download both video and audio and merge them using ffmpeg
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
         ydl_opts['postprocessors'] = [{
             'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',
+            'preferedformat': 'mp4',  # This will convert the final result into mp4
         }]
+    
+    # If cookies file exists, add it to the options
+    if COOKIES_FILE:
+        ydl_opts['cookiefile'] = COOKIES_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            return filename  # Full path of the downloaded file
-    except yt_dlp.utils.DownloadError as e:
-        print(f"Download error: {e}")
-        return f"Download failed: {e}"
+            return filename  # Return full file path of the downloaded media
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        print(f"Download error: {e}")
         return f"Unexpected error: {e}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
@@ -66,7 +64,7 @@ def download():
 
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type', 'video')  # Default to video if not provided
+    media_type = data.get('media_type', 'video')  # Default to video if no media_type provided
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -75,16 +73,13 @@ def download():
         return jsonify({"error": "Invalid YouTube link"}), 400
 
     downloaded_file = download_media(link, media_type)
-    if "Error" in downloaded_file:
+    if "Error" in downloaded_file or "Unexpected error" in downloaded_file:
         return jsonify({"error": downloaded_file}), 500
 
     try:
-        # Use send_file to serve the downloaded file
-        response = send_file(downloaded_file, as_attachment=True)
-        cleanup_file(downloaded_file)  # Schedule file cleanup after serving
-        return response
+        # Use send_file to directly serve the downloaded file
+        return send_file(downloaded_file, as_attachment=True)
     except Exception as e:
-        print(f"File serving error: {e}")
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
