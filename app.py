@@ -3,48 +3,56 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import uuid
+from threading import Timer
 
 app = Flask(__name__)
 
-# Allow requests from the frontend URL
-CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
+# Allow requests from specific frontend URLs
+CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500", "*"])
 
 # Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Path to your cookies file (exported from a browser)
+COOKIES_FILE = "/path/to/cookies.txt"
+
+# Function to clean up temporary files
+def cleanup_file(file_path, delay=3600):
+    Timer(delay, lambda: os.remove(file_path) if os.path.exists(file_path) else None).start()
+
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    # Specify the path to ffmpeg if it's installed in a specific directory
     ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
     ydl_opts = {
-        'ffmpeg_location': ffmpeg_location,  # Point to the ffmpeg binary
+        'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'quiet': False,
-        'verbose': True,  # Enable verbose for debugging
+        'quiet': True,
+        'cookiefile': COOKIES_FILE,  # Include authentication cookies
     }
 
-    # If audio, download only audio
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
-    # If video, download both video and audio and merge them using ffmpeg
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
         ydl_opts['postprocessors'] = [{
             'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',  # This will convert the final result into mp4
+            'preferedformat': 'mp4',
         }]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            return filename  # Return full file path of the downloaded media
-    except Exception as e:
+            return filename  # Full path of the downloaded file
+    except yt_dlp.utils.DownloadError as e:
         print(f"Download error: {e}")
-        return str(e)
+        return f"Download failed: {e}"
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return f"Unexpected error: {e}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
@@ -54,7 +62,7 @@ def download():
 
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type', 'video')  # Default to video if no media_type provided
+    media_type = data.get('media_type', 'video')  # Default to video if not provided
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -67,9 +75,12 @@ def download():
         return jsonify({"error": downloaded_file}), 500
 
     try:
-        # Use send_file to directly serve the downloaded file
-        return send_file(downloaded_file, as_attachment=True)
+        # Use send_file to serve the downloaded file
+        response = send_file(downloaded_file, as_attachment=True)
+        cleanup_file(downloaded_file)  # Schedule file cleanup after serving
+        return response
     except Exception as e:
+        print(f"File serving error: {e}")
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
