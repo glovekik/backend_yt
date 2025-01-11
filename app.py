@@ -6,15 +6,15 @@ import uuid
 
 app = Flask(__name__)
 
-# Allow requests from specific frontend URLs
+# Allow requests from the frontend URL
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
 # Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies file (if needed)
-COOKIES_FILE = "/tmp/cookies.txt"  # Make sure this path is correct for your environment
+# Path to cookies file (make sure this file is correctly placed on your server)
+COOKIES_FILE = "/tmp/cookies.txt"  # Adjust this path based on where you store the cookies file
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
