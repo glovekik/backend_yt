@@ -13,14 +13,13 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to your cookies file (Ensure this file is valid)
-COOKIES_FILE = '/tmp/cookies.txt'  # Update this path if necessary
+# Path to cookies file (if needed)
+COOKIES_FILE = "/tmp/cookies.txt"  # Make sure this path is correct for your environment
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
     ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
-    # Options for yt-dlp
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,  # Point to the ffmpeg binary
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
@@ -29,18 +28,21 @@ def download_media(link, media_type):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,  # Use cookies if file exists
+        'verbose': True,  # Enable verbose for debugging
     }
 
     # If audio, download only audio
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
-    # If video, download both video and audio and merge them using ffmpeg
+    # If video, download without postprocessing (skip format conversion)
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegVideoConvertor',
-            'preferedformat': 'mp4',  # This will convert the final result into mp4
-        }]
+        # Remove postprocessor section to skip video conversion (uncomment below if conversion is needed)
+        # ydl_opts['postprocessors'] = [{
+        #     'key': 'FFmpegVideoConvertor',
+        #     'preferedformat': 'mp4',  # Optional: can be changed to other formats like 'webm'
+        #     'codec': 'libx264',  # Optional: change codec if needed
+        # }]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -68,7 +70,7 @@ def download():
         return jsonify({"error": "Invalid YouTube link"}), 400
 
     downloaded_file = download_media(link, media_type)
-    if "Unexpected error" in downloaded_file:
+    if "Error" in downloaded_file:
         return jsonify({"error": downloaded_file}), 500
 
     try:
