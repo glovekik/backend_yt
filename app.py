@@ -6,7 +6,7 @@ import uuid
 
 app = Flask(__name__)
 
-# Allow requests from the frontend URL
+# Allow requests from specific frontend URLs
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
 # Directory for saving downloads (temporary folder)
@@ -37,12 +37,6 @@ def download_media(link, media_type):
     # If video, download without postprocessing (skip format conversion)
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        # Remove postprocessor section to skip video conversion (uncomment below if conversion is needed)
-        # ydl_opts['postprocessors'] = [{
-        #     'key': 'FFmpegVideoConvertor',
-        #     'preferedformat': 'mp4',  # Optional: can be changed to other formats like 'webm'
-        #     'codec': 'libx264',  # Optional: change codec if needed
-        # }]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
