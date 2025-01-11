@@ -44,9 +44,12 @@ def download_media(link, media_type):
             filename = ydl.prepare_filename(info_dict)
             print(f"Downloaded file: {filename}")  # Log the downloaded file path
             return filename
+    except yt_dlp.utils.DownloadError as e:
+        print(f"yt-dlp download error: {str(e)}")
+        return f"yt-dlp download error: {str(e)}"
     except Exception as e:
-        print(f"Download error: {e}")  # Log any errors during download
-        return f"Unexpected error: {e}"
+        print(f"Unexpected error: {str(e)}")
+        return f"Unexpected error: {str(e)}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
