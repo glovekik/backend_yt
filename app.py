@@ -3,6 +3,7 @@ from flask_cors import CORS
 import yt_dlp
 import os
 import uuid
+from werkzeug.utils import safe_join
 
 app = Flask(__name__)
 
@@ -50,7 +51,6 @@ def download_media(link, media_type):
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
     if request.method == 'OPTIONS':
-        # Handle preflight request
         return '', 200
 
     data = request.get_json()
@@ -67,11 +67,22 @@ def download():
     if "Error" in downloaded_file:
         return jsonify({"error": downloaded_file}), 500
 
+    # Ensure the file exists in the download directory
+    file_path = safe_join(DOWNLOAD_DIR, downloaded_file)
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File not found after download"}), 404
+
     try:
-        # Use send_file to directly serve the downloaded file
-        return send_file(downloaded_file, as_attachment=True)
+        # Send the file as an attachment for download
+        response = send_file(file_path, as_attachment=True)
+        
+        # Clean up after download (optional)
+        os.remove(file_path)
+        
+        return response
     except Exception as e:
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
