@@ -13,23 +13,22 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to the cookies file
-COOKIES_FILE = "/tmp/cookies.txt"
-
-# Check if cookies file exists and warn if it's missing
-if not os.path.exists(COOKIES_FILE):
-    print(f"Warning: Cookies file not found: {COOKIES_FILE}. Proceeding without cookies.")
-    COOKIES_FILE = None  # Disable cookie usage
+# Path to your cookies file (Ensure this file is valid)
+COOKIES_FILE = '/tmp/cookies.txt'  # Update this path if necessary
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    # Specify the path to ffmpeg if it's installed in a specific directory
     ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
+    # Options for yt-dlp
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,  # Point to the ffmpeg binary
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
     }
 
     # If audio, download only audio
@@ -42,10 +41,6 @@ def download_media(link, media_type):
             'key': 'FFmpegVideoConvertor',
             'preferedformat': 'mp4',  # This will convert the final result into mp4
         }]
-    
-    # If cookies file exists, add it to the options
-    if COOKIES_FILE:
-        ydl_opts['cookiefile'] = COOKIES_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -73,7 +68,7 @@ def download():
         return jsonify({"error": "Invalid YouTube link"}), 400
 
     downloaded_file = download_media(link, media_type)
-    if "Error" in downloaded_file or "Unexpected error" in downloaded_file:
+    if "Unexpected error" in downloaded_file:
         return jsonify({"error": downloaded_file}), 500
 
     try:
