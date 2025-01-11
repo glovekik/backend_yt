@@ -72,6 +72,9 @@ def download():
 
     # Ensure the file exists in the download directory
     file_path = safe_join(DOWNLOAD_DIR, downloaded_file)
+    
+    print(f"Checked file path: {file_path}")  # Log the final file path
+    
     if not os.path.exists(file_path):
         return jsonify({"error": "File not found after download"}), 404
 
