@@ -14,10 +14,10 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to your cookies file (update this to the actual location of your cookies file)
+# Path to your cookies file
 COOKIES_FILE = "/tmp/cookies.txt"
 
-# Ensure the cookies file exists before starting the app
+# Ensure the cookies file exists
 if not os.path.exists(COOKIES_FILE):
     raise FileNotFoundError(f"Cookies file not found: {COOKIES_FILE}")
 
@@ -34,7 +34,7 @@ def download_media(link, media_type):
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
         'quiet': True,
-        'cookiefile': COOKIES_FILE,  # Include authentication cookies
+        'cookiefile': COOKIES_FILE,  # Path to cookies file
     }
 
     if media_type == 'audio':
