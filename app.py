@@ -14,8 +14,12 @@ CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to your cookies file (exported from a browser)
-COOKIES_FILE = "/path/to/cookies.txt"
+# Path to your cookies file (update this to the actual location of your cookies file)
+COOKIES_FILE = "/tmp/cookies.txt"
+
+# Ensure the cookies file exists before starting the app
+if not os.path.exists(COOKIES_FILE):
+    raise FileNotFoundError(f"Cookies file not found: {COOKIES_FILE}")
 
 # Function to clean up temporary files
 def cleanup_file(file_path, delay=3600):
