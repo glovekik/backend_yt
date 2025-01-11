@@ -28,7 +28,7 @@ def download_media(link, media_type):
         'headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
-        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,  # Use cookies if file exists
     }
 
     # If audio, download only audio
