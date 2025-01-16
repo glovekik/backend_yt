@@ -40,7 +40,6 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            print(f"Downloaded file: {filename}")
             return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
         return f"yt-dlp download error: {str(e)}"
@@ -76,7 +75,6 @@ def download():
         os.remove(file_path)  # Clean up the file after sending
         return response
     except Exception as e:
-        print(f"Error during file download: {str(e)}")
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
