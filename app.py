@@ -29,10 +29,17 @@ def download_media(link, media_type):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+        'postprocessors': [
+            {'key': 'FFmpegMetadata'},  # Embed metadata
+            {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'}  # Remux video to MP4
+        ],
     }
 
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
+        ydl_opts['postprocessors'].append(
+            {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}
+        )
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
