@@ -29,10 +29,8 @@ def download_media(link, media_type):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
-        'verbose': True,  # Enable verbose for debugging
     }
 
-    # If audio, download only audio
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
     else:
@@ -42,13 +40,11 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            print(f"Downloaded file: {filename}")  # Log the downloaded file path
-            return filename
+            print(f"Downloaded file: {filename}")
+            return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
-        print(f"yt-dlp download error: {str(e)}")
         return f"yt-dlp download error: {str(e)}"
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
         return f"Unexpected error: {str(e)}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
@@ -58,7 +54,7 @@ def download():
 
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type', 'video')  # Default to video if no media_type provided
+    media_type = data.get('media_type', 'video')
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -67,28 +63,20 @@ def download():
         return jsonify({"error": "Invalid YouTube link"}), 400
 
     downloaded_file = download_media(link, media_type)
-    if "Error" in downloaded_file:
+    if "error" in downloaded_file.lower():
         return jsonify({"error": downloaded_file}), 500
 
-    # Ensure the file exists in the download directory
     file_path = safe_join(DOWNLOAD_DIR, downloaded_file)
-    
-    print(f"Checked file path: {file_path}")  # Log the final file path
-    
+
     if not os.path.exists(file_path):
         return jsonify({"error": "File not found after download"}), 404
 
     try:
-        # Send the file as an attachment for download
-        print(f"Sending file: {file_path}")  # Log file sending
         response = send_file(file_path, as_attachment=True)
-        
-        # Clean up after download (optional)
-        os.remove(file_path)
-        
+        os.remove(file_path)  # Clean up the file after sending
         return response
     except Exception as e:
-        print(f"Error during file download: {str(e)}")  # Log errors during file send
+        print(f"Error during file download: {str(e)}")
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
