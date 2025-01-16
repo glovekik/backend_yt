@@ -46,29 +46,19 @@ def download_media(link, media_type):
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
             print(f"Downloaded file: {filename}")
-
-            # If it's audio, convert to MP3 if it's in Opus format
+            
+            # If it's an audio file and is in Opus format, convert it to MP3
             if media_type == 'audio' and filename.endswith('.webm'):
-                # Convert from Opus to MP3
-                output_file = os.path.splitext(filename)[0] + '.mp3'
-                convert_audio_to_mp3(filename, output_file)
-                os.remove(filename)  # Remove the original audio file (Opus)
-                filename = output_file
-
+                mp3_filename = filename.rsplit('.', 1)[0] + '.mp3'
+                subprocess.run([ffmpeg_location, '-i', filename, '-vn', '-acodec', 'libmp3lame', mp3_filename])
+                os.remove(filename)  # Remove the original Opus file
+                filename = mp3_filename  # Update the filename to MP3
+                
             return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
         return f"yt-dlp download error: {str(e)}"
     except Exception as e:
         return f"Unexpected error: {str(e)}"
-
-def convert_audio_to_mp3(input_file, output_file):
-    """Convert audio to MP3 using ffmpeg."""
-    try:
-        subprocess.run([ffmpeg_location, '-i', input_file, '-vn', '-acodec', 'libmp3lame', output_file], check=True)
-        print(f"Converted {input_file} to {output_file}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error converting audio: {str(e)}")
-        raise
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
