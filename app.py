@@ -21,11 +21,12 @@ COOKIES_FILE = "/tmp/cookies.txt"  # Adjust this path based on where you store t
 def download_media(link, media_type):
     ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
+    # Options for yt-dlp
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'merge_output_format': 'mp4',  # Ensure output is MP4 without re-encoding
+        'merge_output_format': 'mp4',  # Ensure output is MP4 for video
         'headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
@@ -36,9 +37,15 @@ def download_media(link, media_type):
     }
 
     if media_type == 'audio':
-        # Ensure audio is downloaded in MP3 format directly
-        ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best'
+        # Download best audio and convert it to MP3 if it's not MP3
+        ydl_opts['format'] = 'bestaudio/best'
+        ydl_opts['postprocessors'].append({
+            'key': 'FFmpegAudioConvertor',
+            'preferredcodec': 'mp3',  # Convert to MP3
+            'preferredquality': '192',  # Set desired quality for MP3
+        })
     else:
+        # Download the best video and best audio, then merge into MP4 format
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
     try:
@@ -77,6 +84,7 @@ def download():
         return jsonify({"error": "File not found after download"}), 404
 
     try:
+        # Send file as download response
         response = send_file(file_path, as_attachment=True)
         os.remove(file_path)  # Clean up the file after sending
         return response
