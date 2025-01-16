@@ -25,21 +25,18 @@ def download_media(link, media_type):
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
+        'merge_output_format': 'mp4',  # Ensure output is MP4 without re-encoding
         'headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
         'postprocessors': [
             {'key': 'FFmpegMetadata'},  # Embed metadata
-            {'key': 'FFmpegVideoConvertor', 'preferedformat': 'mp4'}  # Remux video to MP4
         ],
     }
 
     if media_type == 'audio':
         ydl_opts['format'] = 'bestaudio/best'
-        ydl_opts['postprocessors'].append(
-            {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'}
-        )
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
@@ -47,6 +44,7 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
+            print(f"Downloaded file: {filename}")
             return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
         return f"yt-dlp download error: {str(e)}"
@@ -82,6 +80,7 @@ def download():
         os.remove(file_path)  # Clean up the file after sending
         return response
     except Exception as e:
+        print(f"Error during file download: {str(e)}")
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
