@@ -4,7 +4,6 @@ import yt_dlp
 import os
 import uuid
 from werkzeug.utils import safe_join
-import subprocess
 
 app = Flask(__name__)
 
@@ -37,7 +36,8 @@ def download_media(link, media_type):
     }
 
     if media_type == 'audio':
-        ydl_opts['format'] = 'bestaudio/best'
+        # Ensure audio is downloaded in MP3 format directly
+        ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best'
     else:
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
@@ -46,14 +46,6 @@ def download_media(link, media_type):
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
             print(f"Downloaded file: {filename}")
-            
-            # If it's an audio file and is in Opus format, convert it to MP3
-            if media_type == 'audio' and filename.endswith('.webm'):
-                mp3_filename = filename.rsplit('.', 1)[0] + '.mp3'
-                subprocess.run([ffmpeg_location, '-i', filename, '-vn', '-acodec', 'libmp3lame', mp3_filename])
-                os.remove(filename)  # Remove the original Opus file
-                filename = mp3_filename  # Update the filename to MP3
-                
             return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
         return f"yt-dlp download error: {str(e)}"
