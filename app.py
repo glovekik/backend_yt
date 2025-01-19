@@ -8,52 +8,54 @@ from werkzeug.utils import safe_join
 app = Flask(__name__)
 
 # Allow requests from the frontend URL
-CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
+CORS(app, origins=["https://your-frontend-url.com", "http://127.0.0.1:5500"])
 
 # Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies file (ensure this file is uploaded to the server)
-COOKIES_FILE = "/tmp/cookies.txt"
+# Path to cookies file
+COOKIES_FILE = "/tmp/cookies.txt"  # Adjust this path based on where you store the cookies file
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust this path based on your server configuration
+    ffmpeg_location = '/usr/bin/ffmpeg'
 
-    # Options for yt-dlp
+    # yt-dlp options
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,  # Use cookies if the file exists
-        'postprocessors': [{'key': 'FFmpegMetadata'}],  # Embed metadata
+        'merge_output_format': 'mp4',  # Ensure output is MP4 for video
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+        'postprocessors': [{'key': 'FFmpegMetadata'}],
     }
 
     if media_type == 'audio':
-        # Download best audio and convert to MP3
+        # Download best audio and convert it to MP3
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'].append({
             'key': 'FFmpegAudioConvertor',
-            'preferredcodec': 'mp3',
+            'preferredcodec': 'mp3',  # Convert to MP3
             'preferredquality': '192',
         })
     else:
-        # Download best video and audio, then merge
+        # Download the best video and best audio, then merge them into MP4
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        ydl_opts['merge_output_format'] = 'mp4'
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            return os.path.basename(filename)  # Return the filename
+            print(f"Downloaded file: {filename}")
+            return os.path.basename(filename)  # Return just the file name
     except yt_dlp.utils.DownloadError as e:
-        print(f"Download error: {e}")
-        return f"Download error: {e}"
+        return f"yt-dlp download error: {str(e)}"
     except Exception as e:
-        print(f"Unexpected error: {e}")
-        return f"Unexpected error: {e}"
+        return f"Unexpected error: {str(e)}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
@@ -80,7 +82,7 @@ def download():
         return jsonify({"error": "File not found after download"}), 404
 
     try:
-        # Send the file as a download response
+        # Send file as download response
         response = send_file(file_path, as_attachment=True)
         os.remove(file_path)  # Clean up the file after sending
         return response
@@ -89,4 +91,4 @@ def download():
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
