@@ -1,35 +1,59 @@
-from flask import Flask, request, send_file, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import subprocess
+import yt_dlp
 import os
 import uuid
-from werkzeug.utils import secure_filename
+from werkzeug.utils import safe_join
 
 app = Flask(__name__)
 
 # Allow requests from the frontend URL
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
-# Temporary directory for saving downloads
+# Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to FFmpeg binary
-FFMPEG_PATH = "/usr/bin/ffmpeg"  # Make sure the path to FFmpeg is correct
+# Path to cookies file (make sure this file is correctly placed on your server)
+COOKIES_FILE = "/tmp/cookies.txt"  # Adjust this path based on where you store the cookies file
 
-def convert_media(input_file, output_file, media_type):
-    if media_type == 'video':
-        # Convert video to MP4 format
-        subprocess.run([FFMPEG_PATH, '-i', input_file, '-c:v', 'libx264', '-c:a', 'aac', '-strict', 'experimental', output_file])
-    elif media_type == 'audio':
-        # Convert audio to MP3 format
-        subprocess.run([FFMPEG_PATH, '-i', input_file, '-vn', '-c:a', 'libmp3lame', output_file])
+# Function to download audio or video from YouTube
+def download_media(link, media_type):
+    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
-@app.route('/download', methods=['POST'])
-def download_media():
+    ydl_opts = {
+        'ffmpeg_location': ffmpeg_location,
+        'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
+        'noplaylist': True,
+        'headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+    }
+
+    if media_type == 'audio':
+        ydl_opts['format'] = 'bestaudio/best'
+    else:
+        ydl_opts['format'] = 'bestvideo+bestaudio/best'
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=True)
+            filename = ydl.prepare_filename(info_dict)
+            return os.path.basename(filename)  # Return just the file name
+    except yt_dlp.utils.DownloadError as e:
+        return f"yt-dlp download error: {str(e)}"
+    except Exception as e:
+        return f"Unexpected error: {str(e)}"
+
+@app.route('/download', methods=['POST', 'OPTIONS'])
+def download():
+    if request.method == 'OPTIONS':
+        return '', 200
+
     data = request.get_json()
     link = data.get('link')
-    media_type = data.get('media_type')
+    media_type = data.get('media_type', 'video')
 
     if not link:
         return jsonify({"error": "No link provided"}), 400
@@ -37,26 +61,21 @@ def download_media():
     if not (link.startswith("https://www.youtube.com") or link.startswith("https://youtu.be")):
         return jsonify({"error": "Invalid YouTube link"}), 400
 
-    # Download using yt-dlp
+    downloaded_file = download_media(link, media_type)
+    if "error" in downloaded_file.lower():
+        return jsonify({"error": downloaded_file}), 500
+
+    file_path = safe_join(DOWNLOAD_DIR, downloaded_file)
+
+    if not os.path.exists(file_path):
+        return jsonify({"error": "File not found after download"}), 404
+
     try:
-        output_file = secure_filename(f'{uuid.uuid4()}')
-        temp_file = os.path.join(DOWNLOAD_DIR, f'{output_file}.webm' if media_type == 'video' else f'{output_file}.opus')
-
-        # Use yt-dlp to download the media
-        subprocess.run(['yt-dlp', '-f', 'bestaudio' if media_type == 'audio' else 'bestvideo+bestaudio', '-o', temp_file, link], check=True)
-
-        # Convert the media to a supported format
-        converted_file = os.path.join(DOWNLOAD_DIR, f'{output_file}.mp4' if media_type == 'video' else f'{output_file}.mp3')
-        convert_media(temp_file, converted_file, media_type)
-
-        # Clean up the original downloaded file
-        os.remove(temp_file)
-
-        return send_file(converted_file, as_attachment=True)
-
+        response = send_file(file_path, as_attachment=True)
+        os.remove(file_path)  # Clean up the file after sending
+        return response
     except Exception as e:
-        print(f"Error during download or conversion: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000)
