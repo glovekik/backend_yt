@@ -7,26 +7,31 @@ from werkzeug.utils import safe_join
 
 app = Flask(__name__)
 
-# Allow requests from the frontend
+# Allow requests from the frontend URL
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
-# Directory for saving downloads
+# Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
+# Path to cookies file (ensure this file is uploaded to the server)
+COOKIES_FILE = "/tmp/cookies.txt"
+
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust based on your server configuration
+    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust this path based on your server configuration
 
+    # Options for yt-dlp
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'cookiesfrombrowser': ('chrome',),  # Fetch cookies from Chrome. Replace with 'firefox' or 'edge' if needed.
-        'postprocessors': [{'key': 'FFmpegMetadata'}],
+        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,  # Use cookies if the file exists
+        'postprocessors': [{'key': 'FFmpegMetadata'}],  # Embed metadata
     }
 
     if media_type == 'audio':
+        # Download best audio and convert to MP3
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'].append({
             'key': 'FFmpegAudioConvertor',
@@ -34,6 +39,7 @@ def download_media(link, media_type):
             'preferredquality': '192',
         })
     else:
+        # Download best video and audio, then merge
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
         ydl_opts['merge_output_format'] = 'mp4'
 
@@ -41,7 +47,7 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            return os.path.basename(filename)  # Return only the filename
+            return os.path.basename(filename)  # Return the filename
     except yt_dlp.utils.DownloadError as e:
         print(f"Download error: {e}")
         return f"Download error: {e}"
