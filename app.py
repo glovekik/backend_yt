@@ -6,19 +6,15 @@ import uuid
 from werkzeug.utils import safe_join
 
 app = Flask(__name__)
-
-# Allow requests from specific frontend origins
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
-# Directory for saving downloads
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies file (optional)
-COOKIES_FILE = "/tmp/cookies.txt"
+COOKIES_FILE = "/path/to/your/youtube_cookies.txt"  # Update this path
 
 def download_media(link, media_type):
-    ffmpeg_location = '/usr/bin/ffmpeg'  # Update if ffmpeg is installed elsewhere
+    ffmpeg_location = '/usr/bin/ffmpeg'
 
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
@@ -29,7 +25,6 @@ def download_media(link, media_type):
     }
 
     if media_type == 'audio':
-        # Download best audio and convert it to MP3
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'].append({
             'key': 'FFmpegAudioConvertor',
@@ -37,15 +32,13 @@ def download_media(link, media_type):
             'preferredquality': '192',
         })
     else:
-        # Download best video and best audio, merge them into a single MP4 file
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
-        ydl_opts['merge_output_format'] = 'mp4'  # Ensure the merged output is in MP4 format
+        ydl_opts['merge_output_format'] = 'mp4'
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            # If merge is successful, the file extension will be `.mp4`
             if media_type == 'video' and not filename.endswith('.mp4'):
                 filename = filename.replace('.webm', '.mp4').replace('.mkv', '.mp4')
             return os.path.basename(filename)
