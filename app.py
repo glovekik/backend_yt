@@ -6,21 +6,23 @@ import uuid
 from werkzeug.utils import safe_join
 
 app = Flask(__name__)
+
+# Allow requests from the frontend
 CORS(app, origins=["https://frontend-fullapplication.vercel.app", "http://127.0.0.1:5500"])
 
+# Directory for saving downloads
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-COOKIES_FILE = "/path/to/your/youtube_cookies.txt"  # Update this path
-
+# Function to download audio or video from YouTube
 def download_media(link, media_type):
-    ffmpeg_location = '/usr/bin/ffmpeg'
+    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust based on your server configuration
 
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
         'noplaylist': True,
-        'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
+        'cookiesfrombrowser': ('chrome',),  # Fetch cookies from Chrome. Replace with 'firefox' or 'edge' if needed.
         'postprocessors': [{'key': 'FFmpegMetadata'}],
     }
 
@@ -39,12 +41,12 @@ def download_media(link, media_type):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(link, download=True)
             filename = ydl.prepare_filename(info_dict)
-            if media_type == 'video' and not filename.endswith('.mp4'):
-                filename = filename.replace('.webm', '.mp4').replace('.mkv', '.mp4')
-            return os.path.basename(filename)
+            return os.path.basename(filename)  # Return only the filename
     except yt_dlp.utils.DownloadError as e:
+        print(f"Download error: {e}")
         return f"Download error: {e}"
     except Exception as e:
+        print(f"Unexpected error: {e}")
         return f"Unexpected error: {e}"
 
 @app.route('/download', methods=['POST', 'OPTIONS'])
@@ -67,16 +69,18 @@ def download():
         return jsonify({"error": downloaded_file}), 500
 
     file_path = safe_join(DOWNLOAD_DIR, downloaded_file)
+
     if not os.path.exists(file_path):
-        return jsonify({"error": "File not found"}), 404
+        return jsonify({"error": "File not found after download"}), 404
 
     try:
-        return send_file(file_path, as_attachment=True)
+        # Send the file as a download response
+        response = send_file(file_path, as_attachment=True)
+        os.remove(file_path)  # Clean up the file after sending
+        return response
     except Exception as e:
-        return jsonify({"error": f"File download failed: {e}"}), 500
-    finally:
-        if os.path.exists(file_path):
-            os.remove(file_path)
+        print(f"Error during file download: {str(e)}")
+        return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000)
