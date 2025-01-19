@@ -7,21 +7,21 @@ from werkzeug.utils import safe_join
 
 app = Flask(__name__)
 
-# Allow requests from the frontend URL
-CORS(app, origins=["https://your-frontend-url.com", "http://127.0.0.1:5500"])
+# Allow only the specific frontend origin (replace with your frontend URL)
+CORS(app, origins=["https://frontend-fullapplication.vercel.app"])
 
 # Directory for saving downloads (temporary folder)
 DOWNLOAD_DIR = "/tmp/downloads"
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# Path to cookies file
+# Path to cookies file (make sure this file is correctly placed on your server)
 COOKIES_FILE = "/tmp/cookies.txt"  # Adjust this path based on where you store the cookies file
 
 # Function to download audio or video from YouTube
 def download_media(link, media_type):
-    ffmpeg_location = '/usr/bin/ffmpeg'
+    ffmpeg_location = '/usr/bin/ffmpeg'  # Adjust the path if necessary
 
-    # yt-dlp options
+    # Options for yt-dlp
     ydl_opts = {
         'ffmpeg_location': ffmpeg_location,
         'outtmpl': os.path.join(DOWNLOAD_DIR, f'%(title)s-{uuid.uuid4()}.%(ext)s'),
@@ -31,19 +31,21 @@ def download_media(link, media_type):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         },
         'cookiefile': COOKIES_FILE if os.path.exists(COOKIES_FILE) else None,
-        'postprocessors': [{'key': 'FFmpegMetadata'}],
+        'postprocessors': [
+            {'key': 'FFmpegMetadata'},  # Embed metadata
+        ],
     }
 
     if media_type == 'audio':
-        # Download best audio and convert it to MP3
+        # Download best audio and convert it to MP3 if it's not MP3
         ydl_opts['format'] = 'bestaudio/best'
         ydl_opts['postprocessors'].append({
             'key': 'FFmpegAudioConvertor',
             'preferredcodec': 'mp3',  # Convert to MP3
-            'preferredquality': '192',
+            'preferredquality': '192',  # Set desired quality for MP3
         })
     else:
-        # Download the best video and best audio, then merge them into MP4
+        # Download the best video and best audio, then merge into MP4 format
         ydl_opts['format'] = 'bestvideo+bestaudio/best'
 
     try:
@@ -60,7 +62,7 @@ def download_media(link, media_type):
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download():
     if request.method == 'OPTIONS':
-        return '', 200
+        return '', 200  # This responds to the preflight request
 
     data = request.get_json()
     link = data.get('link')
@@ -91,4 +93,4 @@ def download():
         return jsonify({"error": f"File download failed: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000)
